@@ -1,2 +1,15 @@
 ---
+### K3s configuration ###
 k3s_version: v1.34.5+k3s1
+
+### ArgoCD configuration ###
+argocd_version: v3.3.3
+argocd_namespace: argocd
+argocd_manifest_url: "https://raw.githubusercontent.com/argoproj/argo-cd/{{ argocd_version }}/manifests/install.yaml"
+
+# Expose ArgoCD server via NodePort (set to false to keep ClusterIP)
+argocd_nodeport_enabled: true
+argocd_nodeport: 30080
+
+# Wait for ArgoCD to be ready
+argocd_wait_timeout: 300

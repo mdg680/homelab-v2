@@ -1,0 +1,57 @@
+---
+- name: Setup ArgoCD
+  hosts: k3s_servers
+  become: true
+  vars_files:
+    - ../inventory/group_vars/homelab.yml
+    - ../inventory/group_vars/homelab_vault.yml
+  tasks:
+    - name: Create ArgoCD namespace
+      ansible.builtin.command: kubectl create namespace {{ argocd_namespace }}
+      register: create_namespace
+      failed_when: create_namespace.rc != 0 and 'AlreadyExists' not in create_namespace.stderr
+      changed_when: "'AlreadyExists' not in create_namespace.stderr"
+      become: true
+
+    - name: Deploy ArgoCD
+      ansible.builtin.command: kubectl apply -n {{ argocd_namespace }} -f {{ argocd_manifest_url }} --server-side
+      become: true
+      register: argocd_install
+      changed_when: "'created' in argocd_install.stdout or 'serverside-applied' in argocd_install.stdout"
+
+    - name: Wait for ArgoCD server deployment to be ready
+      ansible.builtin.command: >
+        kubectl rollout status deployment/argocd-server
+        -n {{ argocd_namespace }}
+        --timeout={{ argocd_wait_timeout }}s
+      become: true
+      changed_when: false
+
+    - name: Patch ArgoCD server to NodePort
+      ansible.builtin.command: >
+        kubectl patch svc argocd-server -n {{ argocd_namespace }}
+        -p '{"spec": {"type": "NodePort", "ports": [{"port": 443, "targetPort": 8080, "nodePort": {{ argocd_nodeport }}}]}}'
+      become: true
+      when: argocd_nodeport_enabled
+      register: patch_result
+      changed_when: "'patched' in patch_result.stdout"
+
+    - name: Get ArgoCD admin password
+      ansible.builtin.command: kubectl -n {{ argocd_namespace }} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}"
+      become: true
+      register: argocd_password_b64
+      changed_when: false
+      no_log: true
+
+    - name: Decode ArgoCD admin password
+      ansible.builtin.set_fact:
+        argocd_admin_password: "{{ argocd_password_b64.stdout | b64decode }}"
+      no_log: true
+
+    - name: Display ArgoCD access info
+      ansible.builtin.debug:
+        msg: |
+          ArgoCD installed successfully!
+          URL: https://{{ ansible_host }}:{{ argocd_nodeport }}
+          Username: admin
+          Password: {{ argocd_admin_password }}

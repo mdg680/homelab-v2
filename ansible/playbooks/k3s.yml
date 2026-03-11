@@ -18,7 +18,7 @@
         delay: 5
         timeout: 300
     - name: Check K3s cluster status
-      ansible.builtin.shell: /usr/local/bin/k3s kubectl get nodes
+      ansible.builtin.command: /usr/local/bin/k3s kubectl get nodes
       register: k3s_nodes
       changed_when: false
 
