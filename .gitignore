@@ -208,3 +208,6 @@ __marimo__/
 
 # Secrets
 .vault_password
+
+# Editor swap files
+*.swp
