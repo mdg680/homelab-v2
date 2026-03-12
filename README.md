@@ -120,7 +120,37 @@ ansible-playbook playbooks/k3s.yml --syntax-check
 
 ## Interacting with K3s
 
-### On the master node via SSH
+### Local kubectl (Recommended)
+
+The K3s playbook automatically fetches the kubeconfig from the master node and saves it to `~/.kube/config` on your workstation during deployment.
+
+**Prerequisites:**
+- `kubectl` installed locally on your workstation
+
+**Install kubectl:**
+```bash
+# macOS
+brew install kubectl
+
+# Linux
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+# Or use your package manager
+sudo apt install kubectl  # Debian/Ubuntu
+```
+
+**After running the K3s playbook:**
+```bash
+# Test connectivity
+kubectl cluster-info
+kubectl get nodes
+kubectl get pods -A
+```
+
+### Via SSH to the master node (Alternative)
+
+If kubectl is not installed locally, you can run commands directly on the master:
 
 ```bash
 ssh <master_host>
@@ -128,15 +158,54 @@ ssh <master_host>
 /usr/local/bin/k3s kubectl get pods -A
 ```
 
+## ArgoCD
+
+### Configure GitHub Access for Private Repositories
+
+If your GitHub repository is private, ArgoCD needs SSH credentials to access it.
+
+**Create the SSH credentials secret:**
+
+```bash
+# Create secret directly from your private key file (never in a manifest)
+kubectl create secret generic github-repo-creds \
+  -n argocd \
+  --from-file=sshPrivateKey=$HOME/.ssh/id_ed25519 \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Label it for ArgoCD
+kubectl patch secret github-repo-creds -n argocd \
+  -p '{"metadata":{"labels":{"argocd.argoproj.io/secret-type":"repository"}}}'
+
+# Patch in the Git URL (replace with your username)
+kubectl patch secret github-repo-creds -n argocd \
+  -p '{"stringData":{"type":"git","url":"git@github.com:<your-username>/homelab-v2.git"}}'
+```
+
+**Then deploy applications:**
+
+```bash
+kubectl apply -f manifests/apps/jellyfin.yml
+```
+
+**Important Security Notes:**
+- Never commit SSH private keys to version control
+- The secret is stored in Kubernetes (encrypted if sealed secrets are configured)
+- For production, consider using deploy keys or service accounts instead of personal SSH keys
+
 ## Dependencies
 
-Core dependencies:
+**Ansible Dependencies (installed via pip):**
 - **ansible**: Infrastructure automation
 - **ansible-lint**: Playbook linting
 - **yamllint**: YAML validation
 - **ansible-compat**: Compatibility utilities
 
 See `dependencies/pip/requirements.txt` for full list.
+
+**Local Dependencies (for cluster interaction):**
+- **kubectl**: Kubernetes command-line tool (required for local cluster interaction after K3s deployment)
+- **ssh**: For SSH access to remote hosts (usually pre-installed)
 
 ## License
 

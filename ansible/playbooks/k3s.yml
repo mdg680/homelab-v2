@@ -5,6 +5,12 @@
   vars_files:
     - ../inventory/group_vars/homelab_vault.yml
   tasks:
+    - name: Install NFS client utilities
+      ansible.builtin.apt:
+        name: nfs-common
+        state: present
+        update_cache: true
+
     - name: Install K3s
       ansible.builtin.shell: |
         set -o pipefail
@@ -25,3 +31,45 @@
     - name: Display K3s cluster nodes
       ansible.builtin.debug:
         msg: "{{ k3s_nodes.stdout }}"
+    - name: Fetch kubeconfig from K3s server
+      ansible.builtin.fetch:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: /tmp/k3s.yaml
+        flat: true
+      become: true
+
+    - name: Update kubeconfig server IP on localhost to point to K3s server
+      ansible.builtin.replace:
+        path: /tmp/k3s.yaml
+        regexp: '127\.0\.0\.1'
+        replace: "{{ ansible_host }}"
+      delegate_to: localhost
+      become: false
+
+    - name: Create .kube directory
+      ansible.builtin.file:
+        path: ~/.kube
+        state: directory
+        mode: '0700'
+      delegate_to: localhost
+      become: false
+
+    - name: Copy kubeconfig to ~/.kube/config
+      ansible.builtin.copy:
+        src: /tmp/k3s.yaml
+        dest: ~/.kube/config
+        mode: '0600'
+      delegate_to: localhost
+      become: false
+
+    - name: Cleanup temporary kubeconfig
+      ansible.builtin.file:
+        path: /tmp/k3s.yaml
+        state: absent
+      delegate_to: localhost
+      become: false
+
+    - name: Display kubeconfig location
+      ansible.builtin.debug:
+        msg: "Kubeconfig saved to ~/.kube/config - test with: kubectl cluster-info"
+      delegate_to: localhost
