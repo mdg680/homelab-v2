@@ -6,27 +6,9 @@ metadata:
 spec:
   entryPoints:
     - web
-    - websecure
   routes:
-    # Subdomain route - no path prefix needed
-    - match: Host(`jellyfin.monoper.dk`)
+    - match: PathPrefix(`/`)
       kind: Rule
       services:
         - name: jellyfin
           port: 8096
-    
-    # Path prefix route - for local network access
-    - match: PathPrefix(`/jellyfin`)
-      kind: Rule
-      services:
-        - name: jellyfin
-          port: 8096
-      middlewares:
-        - name: strip-jellyfin-prefix
-          namespace: jellyfin
-  tls:
-    secretName: jellyfin-tls
-    domains:
-      - main: monoper.dk
-        sans:
-          - jellyfin.monoper.dk

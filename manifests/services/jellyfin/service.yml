@@ -6,11 +6,12 @@ metadata:
   labels:
     app: jellyfin
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 8096
       targetPort: 8096
       protocol: TCP
       name: http
+      nodePort: 30096
   selector:
     app: jellyfin
