@@ -7,4 +7,5 @@ resources:
   - pvc.yml
   - deployment.yml
   - service.yml
+  - middleware.yml
   - ingressroute.yml
