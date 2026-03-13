@@ -12,12 +12,15 @@
       - pihole.home
       - argocd.home
   tasks:
+    - name: Set Pi-hole web password
+      kubernetes.core.k8s_exec:
+        namespace: pihole
+        pod: "{{ lookup('kubernetes.core.k8s', kind='Pod', namespace='pihole', label_selector='app=pihole').metadata.name }}"
+        command: pihole setpassword {{ vault_pihole_password }}
+
     - name: Add custom DNS records to Pi-hole
       kubernetes.core.k8s_exec:
         namespace: pihole
         pod: "{{ lookup('kubernetes.core.k8s', kind='Pod', namespace='pihole', label_selector='app=pihole').metadata.name }}"
-        command: >
-          sh -c "mkdir -p /etc/pihole/hosts &&
-                 {% for domain in custom_domains %}echo '{{ traefik_ip }} {{ domain }}' >> /etc/pihole/hosts/custom.hosts &&
-                 {% endfor %}echo 'addn-hosts=/etc/pihole/hosts/custom.hosts' > /etc/dnsmasq.d/99-custom-hosts.conf &&
-                 pihole reloaddns"
+        command: pihole -a addcustomdns {{ item }} {{ traefik_ip }}
+      loop: "{{ custom_domains }}"
