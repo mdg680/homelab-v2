@@ -3,3 +3,5 @@
   ansible.builtin.import_playbook: k3s.yml
 - name: Deploy ArgoCD
   ansible.builtin.import_playbook: argocd.yml
+- name: configure pihole dns records
+  ansible.builtin.import_playbook: pihole.yml
