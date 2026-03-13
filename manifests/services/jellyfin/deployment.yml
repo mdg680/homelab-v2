@@ -44,9 +44,11 @@ spec:
               cpu: "4000m"
       volumes:
         - name: config
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: jellyfin-config-pvc
         - name: cache
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: jellyfin-cache-pvc
         - name: media
           persistentVolumeClaim:
             claimName: jellyfin-media-pvc
