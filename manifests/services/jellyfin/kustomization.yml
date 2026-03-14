@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - namespace.yml
+  - storageclass.yml
   - pv.yml
   - pvc.yml
   - deployment.yml
