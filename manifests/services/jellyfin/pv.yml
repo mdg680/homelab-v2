@@ -6,13 +6,12 @@ spec:
   capacity:
     storage: 1Ti
   accessModes:
-    - ReadOnlyMany
+    - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
   storageClassName: nfs-media
   nfs:
     server: 192.168.50.242
     path: /volume1/Media
-    readOnly: true
 ---
 apiVersion: v1
 kind: PersistentVolume

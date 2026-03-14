@@ -30,7 +30,6 @@ spec:
               mountPath: /cache
             - name: media
               mountPath: /media
-              readOnly: true
             - name: dri
               mountPath: /dev/dri
           securityContext:
