@@ -37,6 +37,8 @@ spec:
               ip link set dev wg0 mtu 1370 up
               # Keep VPN endpoint reachable via original gateway
               ip route add "$ENDPOINT" via "$DEFAULT_GW" dev "$DEFAULT_DEV"
+              # Keep k8s cluster traffic (pods + services) on eth0
+              ip route add 10.43.0.0/16 via "$DEFAULT_GW" dev "$DEFAULT_DEV" 2>/dev/null || true
               # Route all other traffic through wg0
               ip route del default
               ip route add default dev wg0
