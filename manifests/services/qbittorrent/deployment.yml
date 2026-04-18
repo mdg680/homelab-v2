@@ -1,0 +1,165 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qbittorrent
+  namespace: qbittorrent
+  labels:
+    app: qbittorrent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qbittorrent
+  template:
+    metadata:
+      labels:
+        app: qbittorrent
+    spec:
+      # WireGuard needs to set up the network interface before qBittorrent starts.
+      # The initContainer brings up wg0, then exits; the sidecar keeps it alive.
+      initContainers:
+        - name: wireguard-init
+          image: ghcr.io/linuxserver/wireguard:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              CONFIG=/etc/wireguard/wg0.conf
+              ADDR=$(awk '/^Address/{print $3}' $CONFIG)
+              ENDPOINT=$(awk '/^Endpoint/{print $3}' $CONFIG | cut -d: -f1)
+              DEFAULT_GW=$(ip route show default | awk '{print $3; exit}')
+              DEFAULT_DEV=$(ip route show default | awk '{print $5; exit}')
+              ip link delete dev wg0 2>/dev/null || true
+              ip link add dev wg0 type wireguard
+              grep -v -E '^\s*(Address|DNS|PostUp|PreDown|Table|MTU|SaveConfig)\s*=' $CONFIG | wg setconf wg0 /dev/stdin
+              ip addr add $ADDR dev wg0
+              ip link set dev wg0 mtu 1370 up
+              # Keep VPN endpoint reachable via original gateway
+              ip route add "$ENDPOINT" via "$DEFAULT_GW" dev "$DEFAULT_DEV"
+              # Keep k8s cluster traffic (pods + services) on eth0
+              ip route add 10.43.0.0/16 via "$DEFAULT_GW" dev "$DEFAULT_DEV" 2>/dev/null || true
+              # Route all other traffic through wg0
+              ip route del default
+              ip route add default dev wg0
+              # Kill switch: allow only wg0 traffic out (plus VPN endpoint and local)
+              # Also allow k8s cluster CIDRs so DNS/health checks work
+              iptables -I OUTPUT -d "$ENDPOINT" -j ACCEPT
+              iptables -I OUTPUT -d 10.42.0.0/16 -j ACCEPT
+              iptables -I OUTPUT -d 10.43.0.0/16 -j ACCEPT
+              iptables -A OUTPUT ! -o wg0 -m addrtype ! --dst-type LOCAL -j REJECT
+              echo "WireGuard up, routing all traffic via wg0"
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_MODULE
+          volumeMounts:
+            - name: wireguard-config
+              mountPath: /etc/wireguard/wg0.conf
+              subPath: wg0.conf
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+      containers:
+        # WireGuard sidecar — keeps the tunnel alive and re-establishes on failure.
+        # Shares the pod's network namespace with qbittorrent.
+        - name: wireguard
+          image: ghcr.io/linuxserver/wireguard:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              CONFIG=/etc/wireguard/wg0.conf
+              while true; do
+                if ! wg show wg0 > /dev/null 2>&1; then
+                  echo "wg0 down, bringing back up..."
+                  ADDR=$(awk '/^Address/{print $3}' $CONFIG)
+                  ip link add dev wg0 type wireguard 2>/dev/null || true
+                  grep -v -E '^\s*(Address|DNS|PostUp|PreDown|Table|MTU|SaveConfig)\s*=' $CONFIG | wg setconf wg0 /dev/stdin || { sleep 5; continue; }
+                  ip addr add $ADDR dev wg0 2>/dev/null || true
+                  ip link set dev wg0 mtu 1370 up
+                  ip route add default dev wg0 2>/dev/null || true
+                fi
+                sleep 30
+              done
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_MODULE
+          volumeMounts:
+            - name: wireguard-config
+              mountPath: /etc/wireguard/wg0.conf
+              subPath: wg0.conf
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+
+        - name: qbittorrent
+          image: lscr.io/linuxserver/qbittorrent:latest
+          ports:
+            - containerPort: 8080
+              name: webui
+              protocol: TCP
+            - containerPort: 6881
+              name: torrent-tcp
+              protocol: TCP
+            - containerPort: 6881
+              name: torrent-udp
+              protocol: UDP
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "Europe/London"
+            - name: WEBUI_PORT
+              value: "8080"
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: downloads
+              mountPath: /downloads
+            - name: media
+              mountPath: /media
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+
+      volumes:
+        - name: wireguard-config
+          secret:
+            secretName: wireguard-config
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+        - name: config
+          persistentVolumeClaim:
+            claimName: qbittorrent-config-pvc
+        - name: downloads
+          persistentVolumeClaim:
+            claimName: qbittorrent-downloads-pvc
+        - name: media
+          persistentVolumeClaim:
+            claimName: qbittorrent-media-pvc
+        - name: data
+          persistentVolumeClaim:
+            claimName: qbittorrent-data-pvc

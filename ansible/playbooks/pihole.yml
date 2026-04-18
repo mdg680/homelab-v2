@@ -11,6 +11,7 @@
       - jellyfin.home
       - pihole.home
       - argocd.home
+      - qbittorrent.home
   tasks:
     - name: Set Pi-hole web password
       kubernetes.core.k8s_exec:
