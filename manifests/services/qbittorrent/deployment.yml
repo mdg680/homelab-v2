@@ -41,7 +41,10 @@ spec:
               ip route del default
               ip route add default dev wg0
               # Kill switch: allow only wg0 traffic out (plus VPN endpoint and local)
+              # Also allow k8s cluster CIDRs so DNS/health checks work
               iptables -I OUTPUT -d "$ENDPOINT" -j ACCEPT
+              iptables -I OUTPUT -d 10.42.0.0/16 -j ACCEPT
+              iptables -I OUTPUT -d 10.43.0.0/16 -j ACCEPT
               iptables -A OUTPUT ! -o wg0 -m addrtype ! --dst-type LOCAL -j REJECT
               echo "WireGuard up, routing all traffic via wg0"
           securityContext:
