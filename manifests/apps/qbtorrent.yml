@@ -11,7 +11,7 @@ spec:
     path: manifests/services/qbittorrent
   destination:
     server: https://kubernetes.default.svc
-    namespace: qbtorrent
+    namespace: qbittorrent
   syncPolicy:
     automated:
       prune: true
