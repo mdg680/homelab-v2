@@ -13,15 +13,35 @@
       - argocd.home
       - qbittorrent.home
   tasks:
-    - name: Set Pi-hole web password
-      kubernetes.core.k8s_exec:
-        namespace: pihole
-        pod: "{{ lookup('kubernetes.core.k8s', kind='Pod', namespace='pihole', label_selector='app=pihole').metadata.name }}"
-        command: pihole setpassword {{ vault_pihole_password }}
+    - name: Get Pi-hole pod name
+      shell: kubectl get pod -n pihole -l app=pihole -o jsonpath='{.items[0].metadata.name}'
+      register: pihole_pod
+      changed_when: false
 
-    - name: Add custom DNS records to Pi-hole
-      kubernetes.core.k8s_exec:
-        namespace: pihole
-        pod: "{{ lookup('kubernetes.core.k8s', kind='Pod', namespace='pihole', label_selector='app=pihole').metadata.name }}"
-        command: pihole -a addcustomdns {{ item }} {{ traefik_ip }}
+    - name: Authenticate with Pi-hole v6 API
+      shell: >
+        kubectl exec -n pihole {{ pihole_pod.stdout }} --
+        curl -s -X POST http://localhost/api/auth
+        -H 'Content-Type: application/json'
+        -d '{"password":"{{ vault_pihole_password }}"}'
+      register: auth_result
+      changed_when: false
+
+    - name: Extract session token
+      set_fact:
+        pihole_sid: "{{ (auth_result.stdout | from_json).session.sid }}"
+
+    - name: Add custom DNS records via Pi-hole v6 config API
+      shell: >
+        kubectl exec -n pihole {{ pihole_pod.stdout }} --
+        curl -s -X PUT
+        "http://localhost/api/config/dns/hosts/{{ traefik_ip | urlencode }}%20{{ item | urlencode }}"
+        -H 'sid: {{ pihole_sid }}'
       loop: "{{ custom_domains }}"
+
+    - name: Restart Pi-hole DNS to apply new records
+      shell: >
+        kubectl exec -n pihole {{ pihole_pod.stdout }} --
+        curl -s -X POST http://localhost/api/action/restartdns
+        -H 'sid: {{ pihole_sid }}'
+        -H 'Content-Type: application/json'
