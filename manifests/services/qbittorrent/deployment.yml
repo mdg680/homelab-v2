@@ -24,9 +24,27 @@ spec:
             - /bin/sh
             - -c
             - |
-              wg-quick up /etc/wireguard/wg0.conf
-              echo "WireGuard interface up"
+              set -e
+              CONFIG=/etc/wireguard/wg0.conf
+              ADDR=$(awk '/^Address/{print $3}' $CONFIG)
+              ENDPOINT=$(awk '/^Endpoint/{print $3}' $CONFIG | cut -d: -f1)
+              DEFAULT_GW=$(ip route show default | awk '{print $3; exit}')
+              DEFAULT_DEV=$(ip route show default | awk '{print $5; exit}')
+              ip link add dev wg0 type wireguard
+              wg setconf wg0 $CONFIG
+              ip addr add $ADDR dev wg0
+              ip link set dev wg0 mtu 1370 up
+              # Keep VPN endpoint reachable via original gateway
+              ip route add "$ENDPOINT" via "$DEFAULT_GW" dev "$DEFAULT_DEV"
+              # Route all other traffic through wg0
+              ip route del default
+              ip route add default dev wg0
+              # Kill switch: allow only wg0 traffic out (plus VPN endpoint and local)
+              iptables -I OUTPUT -d "$ENDPOINT" -j ACCEPT
+              iptables -A OUTPUT ! -o wg0 -m addrtype ! --dst-type LOCAL -j REJECT
+              echo "WireGuard up, routing all traffic via wg0"
           securityContext:
+            privileged: true
             capabilities:
               add:
                 - NET_ADMIN
@@ -47,15 +65,21 @@ spec:
             - /bin/sh
             - -c
             - |
-              # Interface is already up via initContainer; monitor and keepalive.
+              CONFIG=/etc/wireguard/wg0.conf
               while true; do
                 if ! wg show wg0 > /dev/null 2>&1; then
                   echo "wg0 down, bringing back up..."
-                  wg-quick up /etc/wireguard/wg0.conf || true
+                  ADDR=$(awk '/^Address/{print $3}' $CONFIG)
+                  ip link add dev wg0 type wireguard 2>/dev/null || true
+                  wg setconf wg0 $CONFIG || { sleep 5; continue; }
+                  ip addr add $ADDR dev wg0 2>/dev/null || true
+                  ip link set dev wg0 mtu 1370 up
+                  ip route add default dev wg0 2>/dev/null || true
                 fi
                 sleep 30
               done
           securityContext:
+            privileged: true
             capabilities:
               add:
                 - NET_ADMIN
