@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: git@github.com:mdg680/homelab-v2.git
-    targetRevision: qbtorrent_service
+    targetRevision: master
     path: manifests/services/qbittorrent
   destination:
     server: https://kubernetes.default.svc
