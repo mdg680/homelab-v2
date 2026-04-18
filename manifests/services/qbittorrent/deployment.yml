@@ -32,7 +32,7 @@ spec:
               DEFAULT_DEV=$(ip route show default | awk '{print $5; exit}')
               ip link delete dev wg0 2>/dev/null || true
               ip link add dev wg0 type wireguard
-              wg setconf wg0 $CONFIG
+              grep -v -E '^\s*(Address|DNS|PostUp|PreDown|Table|MTU|SaveConfig)\s*=' $CONFIG | wg setconf wg0 /dev/stdin
               ip addr add $ADDR dev wg0
               ip link set dev wg0 mtu 1370 up
               # Keep VPN endpoint reachable via original gateway
@@ -72,7 +72,7 @@ spec:
                   echo "wg0 down, bringing back up..."
                   ADDR=$(awk '/^Address/{print $3}' $CONFIG)
                   ip link add dev wg0 type wireguard 2>/dev/null || true
-                  wg setconf wg0 $CONFIG || { sleep 5; continue; }
+                  grep -v -E '^\s*(Address|DNS|PostUp|PreDown|Table|MTU|SaveConfig)\s*=' $CONFIG | wg setconf wg0 /dev/stdin || { sleep 5; continue; }
                   ip addr add $ADDR dev wg0 2>/dev/null || true
                   ip link set dev wg0 mtu 1370 up
                   ip route add default dev wg0 2>/dev/null || true
