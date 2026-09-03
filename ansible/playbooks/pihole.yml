@@ -5,7 +5,6 @@
   vars_files:
     - ../inventory/group_vars/homelab_vault.yml
   vars:
-    traefik_ip: "{{ vault_loadbalancer_ip }}"
     custom_domains:
       - whoami.home
       - jellyfin.home
@@ -13,13 +12,32 @@
       - argocd.home
       - qbittorrent.home
   tasks:
+    - name: Get Traefik load balancer IP
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - -n
+          - kube-system
+          - get
+          - service
+          - traefik
+          - -o
+          - jsonpath={.status.loadBalancer.ingress[0].ip}
+      register: traefik_ip_result
+      changed_when: false
+      failed_when: traefik_ip_result.stdout | length == 0
+
+    - name: Set Traefik IP
+      ansible.builtin.set_fact:
+        traefik_ip: "{{ traefik_ip_result.stdout }}"
+
     - name: Get Pi-hole pod name
-      shell: kubectl get pod -n pihole -l app=pihole -o jsonpath='{.items[0].metadata.name}'
+      ansible.builtin.shell: kubectl get pod -n pihole -l app=pihole -o jsonpath='{.items[0].metadata.name}'
       register: pihole_pod
       changed_when: false
 
     - name: Authenticate with Pi-hole v6 API
-      shell: >
+      ansible.builtin.shell: >
         kubectl exec -n pihole {{ pihole_pod.stdout }} --
         curl -s -X POST http://localhost/api/auth
         -H 'Content-Type: application/json'
@@ -32,7 +50,7 @@
         pihole_sid: "{{ (auth_result.stdout | from_json).session.sid }}"
 
     - name: Add custom DNS records via Pi-hole v6 config API
-      shell: >
+      ansible.builtin.shell: >
         kubectl exec -n pihole {{ pihole_pod.stdout }} --
         curl -s -X PUT
         "http://localhost/api/config/dns/hosts/{{ traefik_ip | urlencode }}%20{{ item | urlencode }}"
@@ -40,7 +58,7 @@
       loop: "{{ custom_domains }}"
 
     - name: Restart Pi-hole DNS to apply new records
-      shell: >
+      ansible.builtin.shell: >
         kubectl exec -n pihole {{ pihole_pod.stdout }} --
         curl -s -X POST http://localhost/api/action/restartdns
         -H 'sid: {{ pihole_sid }}'

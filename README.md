@@ -121,8 +121,8 @@ All services are accessible via custom `.home` domains:
 | Whoami | `http://whoami.home` | Test service for routing verification |
 
 **Network Setup:**
-- Traefik LoadBalancer IP: `192.168.50.193`
-- Pi-hole DNS: Port 53 on `192.168.50.193`
+- Traefik LoadBalancer IP: `192.168.1.228`
+- Pi-hole DNS: Port 53 on `192.168.1.228`
 - All `.home` domains resolve through Pi-hole to Traefik
 - Router WAN DNS configured to use Pi-hole
 
