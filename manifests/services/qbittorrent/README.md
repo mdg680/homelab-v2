@@ -147,13 +147,13 @@ If pods fail with `mount.nfs: access denied by server`, the NFS export is missin
 
 Verify exports:
 ```bash
-showmount -e 192.168.50.242
+showmount -e 192.168.1.146
 ```
 
 For each missing path, add a shared folder on Synology DSM:
 - **Control Panel → Shared Folders → Create** (create the folder if it doesn't exist)
 - **Edit → NFS Permissions → Create** with:
-  - Hostname/IP: `192.168.50.0/24`
+  - Hostname/IP: `192.168.1.0/24`
   - Privilege: `Read/Write`
   - Squash: `No mapping`
   - Security: `sys`

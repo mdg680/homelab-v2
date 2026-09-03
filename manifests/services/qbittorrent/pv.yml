@@ -10,7 +10,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: nfs-media
   nfs:
-    server: 192.168.50.242
+    server: 192.168.1.146
     path: /volume1/Metadata/qbittorrent/config
 ---
 apiVersion: v1
@@ -25,7 +25,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: nfs-media
   nfs:
-    server: 192.168.50.242
+    server: 192.168.1.146
     path: /volume1/Downloads
 ---
 apiVersion: v1
@@ -40,7 +40,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: nfs-media
   nfs:
-    server: 192.168.50.242
+    server: 192.168.1.146
     path: /volume1/Media
 ---
 apiVersion: v1
@@ -55,5 +55,5 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: nfs-media
   nfs:
-    server: 192.168.50.242
+    server: 192.168.1.146
     path: /volume1/Data
