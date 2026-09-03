@@ -121,8 +121,8 @@ All services are accessible via custom `.home` domains:
 | Whoami | `http://whoami.home` | Test service for routing verification |
 
 **Network Setup:**
-- Traefik LoadBalancer IP: `192.168.50.193`
-- Pi-hole DNS: Port 53 on `192.168.50.193`
+- Traefik LoadBalancer IP: `192.168.1.228`
+- Pi-hole DNS: Port 53 on `192.168.1.228`
 - All `.home` domains resolve through Pi-hole to Traefik
 - Router WAN DNS configured to use Pi-hole
 
@@ -286,7 +286,7 @@ This automatically:
 **Configure your router to use Pi-hole:**
 1. Go to router WAN settings
 2. Set "Connect to DNS Server automatically" to **No**
-3. Set DNS Server 1 to your Pi-hole IP (e.g., `192.168.50.193`)
+3. Set DNS Server 1 to your Pi-hole IP (e.g., `192.168.1.228`)
 4. Keep DNS Server 2 as your ISP's DNS for redundancy
 
 Pi-hole will:
@@ -357,7 +357,7 @@ See `dependencies/pip/requirements.txt` for full list.
 
 **Check if Pi-hole DNS is working:**
 ```bash
-dig @192.168.50.193 jellyfin.home
+dig @192.168.1.228 jellyfin.home
 nslookup jellyfin.home
 ```
 
@@ -402,7 +402,7 @@ kubectl describe ingressroute <name> -n <namespace>
 
 **Test routing with curl:**
 ```bash
-curl -H "Host: myapp.home" http://192.168.50.193
+curl -H "Host: myapp.home" http://192.168.1.228
 ```
 
 **Check Traefik logs:**
